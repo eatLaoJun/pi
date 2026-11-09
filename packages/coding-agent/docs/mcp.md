@@ -196,7 +196,7 @@ Each server tool is registered as `mcp__<server>__<tool>`. The server's `exposur
 |---|---|---|
 | `codemode` (default) | Callable from [`codemode`](cli.md#tools) scripts, but neither declared to the model nor listed in the codemode description. Scripts find tools with `searchTools()`, `describeTool()`, or `ALL_TOOLS`. | General MCP servers, especially when scripts should combine or filter calls. |
 | `deferred` | Not declared until [`tool_search`](cli.md#tools) loads a match for the next model call. | Large servers whose tools should be called directly after discovery. |
-| `direct` | Declared to the model like a built-in tool and also callable from codemode. | Small, frequently used tool sets. |
+| `direct` | When active, declared to the model like a built-in tool and also callable from codemode. Inactive tools cannot be called from codemode or loaded by `tool_search`. | Small, frequently used tool sets. |
 | `hidden` | Registered but unreachable. | Servers or tools that should remain unavailable. |
 
 `codemode-deferred` is accepted as an alias for `codemode`.
@@ -227,7 +227,7 @@ Pi activates `codemode` when a server with `codemode` exposure connects. It acti
 
 Tools with `codemode` or `deferred` exposure can be reached through either indirect mechanism: codemode scripts can call them, and `tool_search` can load them. Codemode calls do not depend on the active tool set, so they remain available after `/tree`, resume, and fork. Tools loaded by `tool_search` are recorded in the transcript and remain declared on that branch.
 
-`--tools` does not remove MCP tools unless one of its entries starts with `mcp__`; `pi --tools read,codemode,'mcp__radius__*'` keeps only the tools of `radius`. `--exclude-tools` accepts the same patterns, and `--no-mcp` disables MCP for one run (see [Tools](cli.md#mcp-tools)).
+With a plain-name `--tools` allowlist, `direct` MCP tools must match an entry to become active. For example, `pi --tools read,codemode` leaves them inactive, while `codemode` and `deferred` tools remain callable from scripts. Add explicit tool names or a server pattern to include `direct` tools. An entry starting with `mcp__` also filters which MCP tools remain registered: `pi --tools read,codemode,'mcp__radius__*'` keeps only the tools of `radius`. `--exclude-tools` accepts the same patterns, and `--no-mcp` disables MCP for one run (see [Tools](cli.md#mcp-tools)).
 
 To keep `codemode` active without MCP servers, add `"defaultTools": ["+codemode"]` to [settings](settings.md#tools). To prevent automatic codemode activation, set `"autoEnableCodemode": false` beside `mcpServers`. A project value overrides the user-level value. Pi warns once when neither `codemode` nor `tool_search` is active and non-direct tools cannot be called.
 

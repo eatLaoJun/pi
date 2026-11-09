@@ -318,7 +318,8 @@ ${chalk.bold("Options:")}
   --no-tools, -nt                Disable all tools by default (built-in and extension)
   --no-builtin-tools, -nbt       Disable built-in tools by default but keep extension/custom tools enabled
   --tools, -t <tools>            Comma-separated allowlist of tool names or patterns (*) to enable
-                                 Keeps MCP tools unless an entry starts with mcp__
+                                 MCP tools stay registered unless an entry starts with mcp__
+                                 Direct MCP tools must match the allowlist to be callable
                                  Only +name/-name entries add to or remove from the defaults
   --exclude-tools, -xt <tools>   Comma-separated denylist of tool names or patterns (*) to disable
                                  Applies to all tools, MCP tools included

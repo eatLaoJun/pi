@@ -119,7 +119,7 @@ pi --tools read,grep,find,ls --print "Review this project"
 See [Settings](settings.md#tools) for configuring the default tool selection.
 
 - `-t`, `--tools <list>`<br>
-  Replaces the default selection with a comma-separated allowlist of built-in, extension, or custom tools. Entries are tool names or patterns where `*` matches any characters. MCP tools are kept unless an entry starts with `mcp__` (see [MCP tools](#mcp-tools)). A list of only `+name` and `-name` entries is not an allowlist; it changes the default selection instead.
+  Replaces the default selection with a comma-separated allowlist of built-in, extension, or custom tools. Entries are tool names or patterns where `*` matches any characters. MCP tool availability also depends on exposure (see [MCP tools](#mcp-tools)). A list of only `+name` and `-name` entries is not an allowlist; it changes the default selection instead.
 - `-xt`, `--exclude-tools <list>`<br>
   Disables comma-separated tool names or patterns after all other selection options, MCP tools included.
 - `-nbt`, `--no-builtin-tools`<br>
@@ -131,11 +131,18 @@ Default enabled tools are `read`, `bash`, `edit`, and `write`, unless `defaultTo
 
 <a id="mcp-tools"></a>
 
-`--tools` selects the tools declared to the model. It does not remove MCP tools, whose reach is set by their [exposure](mcp.md#control-tool-exposure): `pi --tools read,codemode` keeps every MCP tool callable from codemode scripts. An MCP tool that no entry names or matches is never declared directly, whatever its exposure; only `tool_search`, if listed, can load it. Once an entry starts with `mcp__`, `--tools` filters MCP tools too, so this keeps only the tools of the `radius` server:
+`--tools` selects the tools declared to the model. When no entry starts with `mcp__`, MCP tools remain registered, but their availability depends on [exposure](mcp.md#control-tool-exposure):
+
+- `codemode` and `deferred` tools remain callable from codemode scripts. They are not declared unless an entry names or matches them, or `tool_search`, if enabled, loads them.
+- `direct` tools must be named or matched by the allowlist to become active. An inactive `direct` tool cannot be called from codemode or loaded by `tool_search`.
+
+For example, `pi --tools read,codemode` keeps `codemode` and `deferred` MCP tools callable, but leaves `direct` MCP tools inactive. To include a server's `direct` tools, add its tool names or pattern. Once an entry starts with `mcp__`, the allowlist also filters which MCP tools remain registered, so this keeps only the tools of the `radius` server:
 
 ```sh
 pi --tools read,bash,codemode,'mcp__radius__*'
 ```
+
+To enable codemode while keeping the default tool selection, including `direct` MCP tools, use `pi --tools +codemode`.
 
 The MCP resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`) count as MCP tools. To remove MCP tools, use `--exclude-tools 'mcp__*'` or [`--no-mcp`](#resource-options).
 
