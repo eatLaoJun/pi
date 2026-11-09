@@ -4,6 +4,7 @@ import type { ProviderEnv } from "../types.ts";
 const CLOUDFLARE_API_KEY = "CLOUDFLARE_API_KEY";
 const CLOUDFLARE_ACCOUNT_ID = "CLOUDFLARE_ACCOUNT_ID";
 const CLOUDFLARE_GATEWAY_ID = "CLOUDFLARE_GATEWAY_ID";
+const CLOUDFLARE_GATEWAY_BASE_URL = "CLOUDFLARE_GATEWAY_BASE_URL";
 
 type CloudflareAuthKind = "workers-ai" | "ai-gateway";
 
@@ -33,21 +34,25 @@ async function resolveCloudflareEnv(
 	ctx: AuthContext,
 	credential: ApiKeyCredential | undefined,
 	signal: AbortSignal,
-): Promise<{ apiKey: string; env: ProviderEnv; source: string } | undefined> {
+): Promise<{ apiKey: string | undefined; env: ProviderEnv; source: string } | undefined> {
 	const apiKey = await resolveValue(CLOUDFLARE_API_KEY, ctx, credential, signal);
 	const accountId = await resolveValue(CLOUDFLARE_ACCOUNT_ID, ctx, credential, signal);
 	const gatewayId =
 		kind === "ai-gateway" ? await resolveValue(CLOUDFLARE_GATEWAY_ID, ctx, credential, signal) : undefined;
+	const baseUrl =
+		kind === "ai-gateway" ? await resolveValue(CLOUDFLARE_GATEWAY_BASE_URL, ctx, credential, signal) : undefined;
 
-	if (!apiKey || !accountId || (kind === "ai-gateway" && !gatewayId)) return undefined;
+	// Custom domains identify the account/gateway and can authenticate through Access headers.
+	if (!baseUrl && (!apiKey || !accountId || (kind === "ai-gateway" && !gatewayId))) return undefined;
 
 	return {
 		apiKey,
 		env: {
-			CLOUDFLARE_ACCOUNT_ID: accountId,
+			...(accountId ? { CLOUDFLARE_ACCOUNT_ID: accountId } : {}),
 			...(gatewayId ? { CLOUDFLARE_GATEWAY_ID: gatewayId } : {}),
+			...(baseUrl ? { CLOUDFLARE_GATEWAY_BASE_URL: baseUrl } : {}),
 		},
-		source: credential ? "stored credential" : CLOUDFLARE_API_KEY,
+		source: credential ? "stored credential" : apiKey ? CLOUDFLARE_API_KEY : CLOUDFLARE_GATEWAY_BASE_URL,
 	};
 }
 
@@ -74,8 +79,17 @@ export function cloudflareWorkersAIAuth(): ApiKeyAuth {
 export function cloudflareAIGatewayAuth(): ApiKeyAuth {
 	return {
 		name: "Cloudflare API key",
-		login: async (interaction) => {
-			const key = await interaction.prompt({ type: "secret", message: "Enter Cloudflare API key" });
+		login: async (interaction): Promise<ApiKeyCredential> => {
+			const baseUrl = await interaction.prompt({
+				type: "text",
+				message: "Enter custom gateway base URL (leave empty for the default endpoint)",
+				placeholder: "https://ai.example.com",
+			});
+			const key = await interaction.prompt({
+				type: "secret",
+				message: baseUrl ? "Enter Cloudflare API key (optional for custom domains)" : "Enter Cloudflare API key",
+			});
+			if (baseUrl) return { type: "api_key", key, env: { CLOUDFLARE_GATEWAY_BASE_URL: baseUrl } };
 			const accountId = await interaction.prompt({ type: "text", message: "Enter Cloudflare account ID" });
 			const gatewayId = await interaction.prompt({ type: "text", message: "Enter Cloudflare AI Gateway ID" });
 			return {
@@ -90,7 +104,7 @@ export function cloudflareAIGatewayAuth(): ApiKeyAuth {
 			return {
 				auth: {
 					headers: {
-						"cf-aig-authorization": `Bearer ${resolved.apiKey}`,
+						"cf-aig-authorization": resolved.apiKey ? `Bearer ${resolved.apiKey}` : null,
 						Authorization: null,
 						"x-api-key": null,
 					},

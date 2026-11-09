@@ -199,7 +199,7 @@ Pi also supports ECS task credentials and IRSA through the standard `AWS_CONTAIN
 
 ### Cloudflare AI Gateway
 
-The gateway requires a token, account ID, and gateway ID:
+The default gateway endpoint requires a token, account ID, and gateway ID:
 
 ```bash
 export CLOUDFLARE_API_KEY=...
@@ -210,6 +210,39 @@ export CLOUDFLARE_GATEWAY_ID=...
 The account and gateway IDs can come from the process environment or the credential's `env` object in `auth.json`.
 
 `CLOUDFLARE_API_KEY` authenticates Pi to the gateway. Upstream access can use Cloudflare unified billing, credentials stored in the gateway, or an `Authorization` header configured for the provider in `models.json`.
+
+For a [custom domain](https://developers.cloudflare.com/ai-gateway/configuration/custom-domains/), set the gateway root URL:
+
+```bash
+export CLOUDFLARE_GATEWAY_BASE_URL=https://ai.example.com
+```
+
+Pi appends each model's provider route (`/openai`, `/anthropic`, or `/compat`). Account and gateway IDs are not required. The gateway token is optional; set `CLOUDFLARE_API_KEY` if your gateway requires it. Explicit model `baseUrl` overrides remain unchanged.
+
+You can also configure the custom URL with `/login cloudflare-ai-gateway` or in the credential's `env` object in `auth.json`. Leave the API key empty when using Access instead of a gateway token. A stored empty `key` also disables an ambient `CLOUDFLARE_API_KEY` for this provider.
+
+For [Cloudflare Access](https://developers.cloudflare.com/ai-gateway/configuration/cloudflare-access/), supply an Access token through the provider's existing `headers` configuration in `models.json`:
+
+```json
+{
+  "providers": {
+    "cloudflare-ai-gateway": {
+      "headers": {
+        "Authorization": "Bearer ${CLOUDFLARE_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Authenticate and export the Access token before starting Pi:
+
+```bash
+cloudflared access login https://ai.example.com
+export CLOUDFLARE_ACCESS_TOKEN=$(cloudflared access token --app=https://ai.example.com)
+```
+
+Access validates the bearer token, so no separate gateway token is required. Refresh the token when it expires. Header values can also run credential commands at request time; see [models.json](models.md#configure-a-compatible-endpoint).
 
 ### Cloudflare Workers AI
 

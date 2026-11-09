@@ -8,7 +8,16 @@ export function resolveCloudflareModel<TModel extends { baseUrl: string }>(
 	env: ProviderEnv | undefined,
 ): TModel {
 	if (!env) return model;
-	const baseUrl = model.baseUrl
+	let baseUrl = model.baseUrl;
+	const gatewayBaseUrl = env.CLOUDFLARE_GATEWAY_BASE_URL;
+	if (gatewayBaseUrl) {
+		// Only rewrite catalog templates so explicit model endpoints keep precedence.
+		baseUrl = baseUrl.replace(
+			`https://gateway.ai.cloudflare.com/v1/{${CLOUDFLARE_ACCOUNT_ID}}/{${CLOUDFLARE_GATEWAY_ID}}/`,
+			() => `${gatewayBaseUrl.replace(/\/+$/, "")}/`,
+		);
+	}
+	baseUrl = baseUrl
 		.replaceAll(`{${CLOUDFLARE_ACCOUNT_ID}}`, env[CLOUDFLARE_ACCOUNT_ID] ?? `{${CLOUDFLARE_ACCOUNT_ID}}`)
 		.replaceAll(`{${CLOUDFLARE_GATEWAY_ID}}`, env[CLOUDFLARE_GATEWAY_ID] ?? `{${CLOUDFLARE_GATEWAY_ID}}`);
 	return baseUrl === model.baseUrl ? model : { ...model, baseUrl };

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getModel, streamSimple } from "../src/compat.ts";
 import type { Context, Model } from "../src/types.ts";
 
@@ -55,6 +55,8 @@ vi.mock("openai", () => {
 });
 
 describe("openai-completions empty tools handling", () => {
+	afterEach(() => vi.unstubAllEnvs());
+
 	beforeEach(() => {
 		mockState.lastParams = undefined;
 		mockState.lastClientOptions = undefined;
@@ -210,6 +212,31 @@ describe("openai-completions empty tools handling", () => {
 
 		const clientOptions = mockState.lastClientOptions as { baseURL?: string };
 		expect(clientOptions.baseURL).toBe("https://gateway.ai.cloudflare.com/v1/account-id/gateway-id/compat");
+	});
+
+	// Regression for https://github.com/earendil-works/pi/issues/10627
+	it("uses a custom Cloudflare gateway domain with Access headers and no gateway credentials", async () => {
+		vi.stubEnv("CLOUDFLARE_API_KEY", undefined);
+		vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", undefined);
+		vi.stubEnv("CLOUDFLARE_GATEWAY_ID", undefined);
+		vi.stubEnv("CLOUDFLARE_GATEWAY_BASE_URL", "https://ai.example.com");
+		const model = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
+
+		const result = await streamSimple(
+			model,
+			{ messages: [{ role: "user", content: "hi", timestamp: Date.now() }] },
+			{ headers: { Authorization: "Bearer access-token" } },
+		).result();
+
+		expect(result.errorMessage).toBeUndefined();
+		expect(result.stopReason).toBe("stop");
+		const clientOptions = mockState.lastClientOptions as {
+			baseURL?: string;
+			defaultHeaders?: Record<string, unknown>;
+		};
+		expect(clientOptions.baseURL).toBe("https://ai.example.com/compat");
+		expect(clientOptions.defaultHeaders?.Authorization).toBe("Bearer access-token");
+		expect(clientOptions.defaultHeaders?.["cf-aig-authorization"]).toBeNull();
 	});
 
 	it("preserves inline upstream Authorization for Cloudflare AI Gateway BYOK requests", async () => {
